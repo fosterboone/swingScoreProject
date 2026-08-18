@@ -1,0 +1,22 @@
+---
+title: "swingScore"
+author: "Foster Boone"
+date: "2026-07-26"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+library(tidyverse)
+library(hoopR)
+```
+
+```{r}
+adv_box <- nba_boxscoreadvancedv3(game_id = "0022200021")
+adv_box$away_team_player_advanced
+```
+

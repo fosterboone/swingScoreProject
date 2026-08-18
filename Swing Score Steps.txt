@@ -1,0 +1,11 @@
+Swing Score Steps:
+
+1 Calculate individual player PIE average (either season long or rolling average up to that point)
+
+2 Split games into above and below based on average 
+
+3 Calculate the team's average point differential, then the average point differential for above PIE games and below PIE games
+
+4 Calculate above impact and below impact by subtracting the above point diff from the season average point diff, and the below point diff form the season average point diff
+
+5 Finally calculate swing score by subtracting the above impact from below

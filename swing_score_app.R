@@ -7,7 +7,7 @@ library(lubridate)
 library(dqshiny)
 
 ########################################################################
-#NBA Tab
+#NBA Tab----
 nba_tab<- nav_panel(
   title = "NBA",
   layout_sidebar(
@@ -32,19 +32,33 @@ nba_tab<- nav_panel(
       ),
       nav_panel_hidden(
         value = "nba_player_search_val",
-        autocomplete_input(
-          id="nba_player_search",
-          label = "Search a Player",
-          options = NULL,
-          max_options = 10
+        layout_column_wrap(
+
+          width=1/2,
+          card(
+            autocomplete_input(
+              id="nba_player_search",
+              label = "Search a Player",
+              options = NULL,
+              max_options = 10
+            ),
+            class = "mx-auto my-3"
+          ),
+          card(
+            selectInput(
+              inputId = "nba_player_search_season_select",
+              label = "Select a Season",
+              choices = rev(seq(2002, most_recent_nba_season())),
+              selected = most_recent_nba_season()
+            ),
+            class = "mx-auto my-3"
+          )
+          
         ),
-        autocomplete_input(
-          id="nba_player_search_season_select",
-          label = "Select a Season",
-          value=most_recent_nba_season(),
-          options = c(2026,2025,2024),
-          max_options = 10
+        card_body(
+          uiOutput("nba_player_stats_ui")
         )
+        
       ),
       nav_panel_hidden(
         value = "nba_other_val"
@@ -55,13 +69,13 @@ nba_tab<- nav_panel(
   
 )
 ########################################################################
-#WNBA Tab
+#WNBA Tab----
 wnba_tab<-nav_panel(
   title = "WNBA",
   card("WNBA tab info")
 )
 ########################################################################
-#UI Function Call
+#UI Function Call----
 ui <- shinyUI(
   page_navbar(
     title = "Basketball Overview",
@@ -70,18 +84,24 @@ ui <- shinyUI(
   )
 )
 ########################################################################
-#Server Function Call
+#Server Function Call----
 server <- function(input, output, session) {
+  
+# Tab Selection (Server)----
 # NBA Tab Selection Logic
   observeEvent(input$nba_page_selection, {
     nav_select("nba_main_disp", input$nba_page_selection)
   })
-  
+
+# Player Search (Server)----
+
   nba_player_search_season_data <- eventReactive(input$nba_player_search_season_select, {
     req(input$nba_player_search_season_select)
     load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))
   })
+  
   observe({
+    req(nba_player_search_season_data())
     update_autocomplete_input(
       session = session,
       id = "nba_player_search",
@@ -91,7 +111,15 @@ server <- function(input, output, session) {
         pull(athlete_display_name)
     )
   })
-# NBA Game output Logic 
+  
+  output$nba_player_stats_ui<-renderUI({
+    load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))%>%
+      filter(athlete_display_name==input$nba_player_search)->nba_selected_player_data
+    nba_selected_player_data
+  })
+
+#Schedule Output (Server)----
+  # NBA Game output Logic 
   nba_schedule_game_selections<-reactive({
     if (as.numeric(substr(input$nba_game_date,1,4))==most_recent_mbb_season()){
       #If the current season is selected only include current year
@@ -160,4 +188,4 @@ server <- function(input, output, session) {
 
 
 shinyApp(ui, server)%>%print()
-
+bs_theme_preview()

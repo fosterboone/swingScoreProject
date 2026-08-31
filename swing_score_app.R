@@ -33,7 +33,6 @@ nba_tab<- nav_panel(
       nav_panel_hidden(
         value = "nba_player_search_val",
         layout_column_wrap(
-
           width=1/2,
           card(
             autocomplete_input(
@@ -96,27 +95,64 @@ server <- function(input, output, session) {
 # Player Search (Server)----
 
   nba_player_search_season_data <- eventReactive(input$nba_player_search_season_select, {
-    req(input$nba_player_search_season_select)
-    load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))
-  })
+    req(input$nba_player_search_season_select)#requires a season input
+    load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))%>%
+      rename(player = "athlete_display_name",
+             pts = "points",
+             fgm = "field_goals_made", fga = "field_goals_attempted",
+             fg3m = "three_point_field_goals_made",
+             ftm = "free_throws_made", fta = "free_throws_attempted", 
+             oreb = "offensive_rebounds", dreb = "defensive_rebounds",
+             ast = "assists", stl = "steals", blk = "blocks",
+             pf = "fouls", tov = "turnovers")%>%
+      nba_add_advanced_metrics()
+  })#When the nba season dropdown menu input changes, use it to filter the box 
+  #score data based on the selected season
   
   observe({
-    req(nba_player_search_season_data())
+    req(nba_player_search_season_data())#requires the filtered season data to exist
     update_autocomplete_input(
       session = session,
       id = "nba_player_search",
       options = nba_player_search_season_data() %>%
-        distinct(athlete_display_name) %>%
-        arrange(athlete_display_name) %>%
-        pull(athlete_display_name)
+        distinct(player) %>%
+        arrange(player) %>%
+        pull(player)
     )
-  })
+  })#Uses the season filtered box score data to populate plaeyer selection options
+  
+  nba_selected_player_data <- reactive({
+    req(input$nba_player_search) # requires a player search input value
+    nba_player_search_season_data() %>%
+      filter(player == input$nba_player_search)
+  })#filters the season data based on player name
   
   output$nba_player_stats_ui<-renderUI({
-    load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))%>%
-      filter(athlete_display_name==input$nba_player_search)->nba_selected_player_data
-    nba_selected_player_data
-  })
+    req(nrow(nba_selected_player_data()) > 0)#Waits to make sure player is selected
+    page_fluid(
+      layout_column_wrap(
+        style = paste0("border-radius: 8px; border: 4px solid #f0f4f8;
+                     background: linear-gradient(135deg, #",
+                       nba_selected_player_data()$team_color[1],
+                       " 49.9%, #ffffff 50%, #ffffff 50.5%, #",
+                       nba_selected_player_data()$team_alternate_color[1],
+                       " 50.6%);"),#Creates split line coloring with team colors
+        width = 1/4,
+        card_image(file=nba_selected_player_data()$athlete_headshot_href[1]),
+        card(
+          class = "text-white",
+          style = "background: transparent; border: none; box-shadow: none;",
+          card_body(
+            style = "background: transparent;",
+            p(strong(nba_selected_player_data()$player[1]),
+              style = "font-family: Tahoma; font-size: 25px"),
+            p(strong(paste0("#",nba_selected_player_data()$athlete_jersey[1])),
+              style = "font-family: Tahoma; font-size: 15px")
+          )
+        ),
+      )
+    )
+  })#Creates a UI based on the selected player and season
 
 #Schedule Output (Server)----
   # NBA Game output Logic 
@@ -127,6 +163,7 @@ server <- function(input, output, session) {
       
     }
     else{
+      #Include the range of seasons
       seasons_selected<-c(as.numeric(substr(input$nba_game_date,1,4)),
                           as.numeric(substr(input$nba_game_date,1,4))+1)
     }
@@ -187,5 +224,6 @@ server <- function(input, output, session) {
 }
 
 
-shinyApp(ui, server)%>%print()
-bs_theme_preview()
+shinyApp(ui, server)
+
+

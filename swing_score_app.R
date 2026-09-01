@@ -78,6 +78,12 @@ wnba_tab<-nav_panel(
 ui <- shinyUI(
   page_navbar(
     title = "Basketball Overview",
+    header = tags$head(
+      tags$link(
+        rel = "stylesheet",
+        href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;700&display=swap"
+      )
+    ),
     nba_tab,
     wnba_tab
   )
@@ -127,32 +133,111 @@ server <- function(input, output, session) {
       filter(player == input$nba_player_search)
   })#filters the season data based on player name
   
-  output$nba_player_stats_ui<-renderUI({
-    req(nrow(nba_selected_player_data()) > 0)#Waits to make sure player is selected
+  output$nba_player_stats_ui <- renderUI({
+    req(nrow(nba_selected_player_data()) > 0) # Waits to make sure player is selected
+    
     page_fluid(
-      layout_column_wrap(
+      fluidRow(
         style = paste0("border-radius: 8px; border: 4px solid #f0f4f8;
                      background: linear-gradient(135deg, #",
                        nba_selected_player_data()$team_color[1],
-                       " 49.9%, #ffffff 50%, #ffffff 50.5%, #",
-                       nba_selected_player_data()$team_alternate_color[1],
-                       " 50.6%);"),#Creates split line coloring with team colors
-        width = 1/4,
-        card_image(file=nba_selected_player_data()$athlete_headshot_href[1]),
-        card(
-          class = "text-white",
-          style = "background: transparent; border: none; box-shadow: none;",
-          card_body(
-            style = "background: transparent;",
-            p(strong(nba_selected_player_data()$player[1]),
-              style = "font-family: Tahoma; font-size: 25px"),
-            p(strong(paste0("#",nba_selected_player_data()$athlete_jersey[1])),
-              style = "font-family: Tahoma; font-size: 15px")
-          )
+                       " 49.9%, #f0f4f8 50%, #f0f4f8 50.5%, #",
+                       "ffffff",
+                       " 50.6%);"), # Creates split line coloring with team colors
+        column(
+          width = 3,
+          card_image(file = nba_selected_player_data()$athlete_headshot_href[1],
+                     height = "220px")#Show player headshot
         ),
+        column(
+          width = 3,
+          card(
+            class = "text-white",
+            style = "background: transparent; border: none; box-shadow: none;",
+            card_body(
+              style = "background: transparent;",
+              p(strong(nba_selected_player_data()$player[1]),
+                style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px;"),
+              p(strong(paste0(nba_selected_player_data()$team_display_name[1],
+                              " | #", nba_selected_player_data()$athlete_jersey[1])),
+                style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 23px;")
+            )
+          )
+        ),#Shows the player's name and jersey number
+        column(width = 1),#Empty spacing column
+        column(
+          width=5,
+          fluidRow(
+            column(
+              width = 4,
+              class = "d-flex flex-column justify-content-center align-items-center",
+              card(
+                style = "background: transparent; border: none; box-shadow: none;",
+                card_body(
+                  style = "background: transparent;",
+                  p(""),
+                  p(""),
+                  p("PPG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
+                  p(nba_selected_player_data()%>%
+                             filter(!is.na(pts))%>%
+                             summarise(avg=round(mean(pts),2))%>%
+                             pull(avg),
+                    style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
+                    class = "text-center")
+                )
+              )
+            ),#Shows Points per game 
+            column(
+              width = 4,
+              class = "d-flex flex-column justify-content-center align-items-center",
+              card(
+                style = "background: transparent; border: none; box-shadow: none;",
+                card_body(
+                  style = "background: transparent;",
+                  p(""),
+                  p(""),
+                  p("RPG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
+                  p(nba_selected_player_data()%>%
+                             filter(!is.na(oreb),
+                                    !is.na(dreb))%>%
+                             summarise(avg=round(mean(oreb+dreb),digits = 2))%>%
+                             pull(avg),
+                    style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
+                    class = "text-center")
+                )
+              )
+            ),#Shows Rebounds per game
+            column(
+              width = 4, 
+              class = "d-flex flex-column justify-content-center align-items-center",
+              card(
+                style = "background: transparent; border: none; box-shadow: none;",
+                card_body(
+                  style = "background: transparent;",
+                  p(""),
+                  p(""),
+                  p("APG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
+                  p(mean(nba_selected_player_data()%>%
+                                  filter(!is.na(ast))%>%
+                                  summarise(avg=round(mean(ast),2))%>%
+                                  pull(avg)
+                                ),
+                    style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
+                    class = "text-center")
+                )
+              )
+            )#Shows Assists per game
+          )
+        )
+      ),
+      navset_tab(
+        nav_panel("Box Score",
+                  renderDataTable(nba_selected_player_data())),
+        nav_panel("title 2"),
+        nav_panel("title 3")
       )
     )
-  })#Creates a UI based on the selected player and season
+  })
 
 #Schedule Output (Server)----
   # NBA Game output Logic 
@@ -225,5 +310,7 @@ server <- function(input, output, session) {
 
 
 shinyApp(ui, server)
+
+
 
 

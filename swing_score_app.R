@@ -5,6 +5,8 @@ library(tidyverse)
 library(bslib)
 library(lubridate)
 library(dqshiny)
+library(DT)
+library(ggimage)
 
 ########################################################################
 #NBA Tab----
@@ -133,6 +135,12 @@ server <- function(input, output, session) {
       filter(player == input$nba_player_search)
   })#filters the season data based on player name
   
+  nba_selected_player_pbp<-eventReactive(input$nba_player_search_season_select,{
+    load_nba_pbp(seasons = input$nba_player_search_season_select)%>%
+      select(shooting_play,scoring_play,coordinate_x,coordinate_y,athlete_name_1)%>%
+      filter(shooting_play,
+             athlete_name_1=="Tre Johnson")
+  })
   output$nba_player_stats_ui <- renderUI({
     req(nrow(nba_selected_player_data()) > 0) # Waits to make sure player is selected
     
@@ -232,8 +240,33 @@ server <- function(input, output, session) {
       ),
       navset_tab(
         nav_panel("Box Score",
-                  renderDataTable(nba_selected_player_data())),
-        nav_panel("title 2"),
+                  DT::renderDataTable(nba_selected_player_data()%>%
+                                    select(c(39,3,4,12:29,46:48,52,57:63))%>%
+                                    rename(`Team Name`="team_display_name",
+                                           `Season Type`="season_type",
+                                           `Date`="game_date",
+                                           `Minutes`="minutes",
+                                           `Field Goals Made`="fgm",
+                                           `Field Goals Attempted`="fga",
+                                           `3P Field Goals Made`="fg3m",
+                                           `3P Field Goals Attempted`="three_point_field_goals_attempted",
+                                           `Free Throws Made`="ftm",
+                                           `Free Throws Attempted`="fta",
+                                           `Offensive Rebounds`="oreb",
+                                           `Defensive Rebounds`="dreb",
+                                           `Rebounds`="rebounds",
+                                           `Assists`="ast",
+                                           `Steals`="stl",
+                                           `Blocks`="blk",
+                                           `Turnovers`="tov",
+                                           `Personal Fouls`="pf",
+                                           `Plus Minus`="plus_minus",
+                                           `Points`="pts",
+                                    )%>%
+                                      datatable(class = 'stripe hover compact cell-border')
+                                    )),
+        nav_panel("Shot Chart"
+                  ),
         nav_panel("title 3")
       )
     )
@@ -311,6 +344,18 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
+load_nba_pbp(seasons=2026)%>%
+  select(shooting_play,scoring_play,coordinate_x,coordinate_y,athlete_name_1)%>%
+  filter(shooting_play,
+         athlete_name_1=="Tre Johnson")%>%
+  ggplot(aes(abs(coordinate_x),coordinate_y))+
+  geom_point(aes(colour = scoring_play))+
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )->x
 
+
+  ggbackground(x,background = "shot_chart.png")
 
 

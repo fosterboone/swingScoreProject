@@ -7,6 +7,7 @@ library(lubridate)
 library(dqshiny)
 library(DT)
 library(ggimage)
+library(ggpubr)
 
 ########################################################################
 #NBA Tab----
@@ -135,12 +136,58 @@ server <- function(input, output, session) {
       filter(player == input$nba_player_search)
   })#filters the season data based on player name
   
-  nba_selected_player_pbp<-eventReactive(input$nba_player_search_season_select,{
-    load_nba_pbp(seasons = input$nba_player_search_season_select)%>%
-      select(shooting_play,scoring_play,coordinate_x,coordinate_y,athlete_name_1)%>%
+  nba_player_search_season_pbp<-eventReactive(input$nba_player_search_season_select,{
+    load_nba_pbp(seasons = as.integer(input$nba_player_search_season_select))
+  })#Uses selected season to filter play by play data
+  
+  nba_selected_player_pbp<-reactive({
+    req(input$nba_player_search)
+    nba_player_search_season_pbp()%>%
       filter(shooting_play,
-             athlete_name_1=="Tre Johnson")
+             athlete_name_1==input$nba_player_search)
+  })#Uses selected player to filter play by play data
+  
+  nba_data_player_search_season<-eventReactive(input$nba_player_search_season_select,{
+  
+    
+    nba_playergamelogs(
+      season = paste0(as.numeric(input$nba_player_search_season_select)-1,
+                      "-",
+                      as.numeric(input$nba_player_search_season_select) %% 100),player_id = "")
+    
   })
+  nba_data_selected_player_shot_data<-reactive({
+    req(input$nba_player_search)
+    input$nba_player_search_season_select->season_input
+    nba_data_player_search_season()$PlayerGameLogs%>%
+      filter(PLAYER_NAME==input$nba_player_search)%>%
+      distinct(TEAM_ID,PLAYER_ID)->player_teams
+    
+    shot_data<-data.frame()
+    if(length(player_teams$TEAM_ID)>1){
+      for (i in player_teams$TEAM_ID){
+        shots <- nba_shotchartdetail(
+          player_id = player_teams$PLAYER_ID[1], 
+          team_id = i,  
+          season = paste0(as.numeric(season_input)-1,
+                          "-",
+                          as.numeric(season_input) %% 100)
+        )
+        shot_data <- rbind(shot_data,shots$Shot_Chart_Detail)
+      }
+    }else{
+      shots <- nba_shotchartdetail(
+        player_id = player_teams$PLAYER_ID[1], 
+        team_id = player_teams$TEAM_ID[1],  
+        season = paste0(as.numeric(season_input)-1,
+                        "-",
+                        as.numeric(season_input) %% 100)
+      )
+      shot_data<-shots$Shot_Chart_Detail
+    }
+    shot_data
+  })
+  
   output$nba_player_stats_ui <- renderUI({
     req(nrow(nba_selected_player_data()) > 0) # Waits to make sure player is selected
     
@@ -265,7 +312,8 @@ server <- function(input, output, session) {
                                     )%>%
                                       datatable(class = 'stripe hover compact cell-border')
                                     )),
-        nav_panel("Shot Chart"
+        nav_panel("Shot Chart",
+                  DT::renderDataTable(nba_data_selected_player_shot_data())
                   ),
         nav_panel("title 3")
       )
@@ -344,18 +392,5 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 
-load_nba_pbp(seasons=2026)%>%
-  select(shooting_play,scoring_play,coordinate_x,coordinate_y,athlete_name_1)%>%
-  filter(shooting_play,
-         athlete_name_1=="Tre Johnson")%>%
-  ggplot(aes(abs(coordinate_x),coordinate_y))+
-  geom_point(aes(colour = scoring_play))+
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
-  )->x
-
-
-  ggbackground(x,background = "shot_chart.png")
 
 

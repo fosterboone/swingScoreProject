@@ -156,35 +156,29 @@ server <- function(input, output, session) {
                       as.numeric(input$nba_player_search_season_select) %% 100),player_id = "")
     
   })
-  nba_data_selected_player_shot_data<-reactive({
+  nba_data_selected_player_shot_data <- eventReactive(input$nba_player_search, {
     req(input$nba_player_search)
-    input$nba_player_search_season_select->season_input
-    nba_data_player_search_season()$PlayerGameLogs%>%
-      filter(PLAYER_NAME==input$nba_player_search)%>%
-      distinct(TEAM_ID,PLAYER_ID)->player_teams
+    req(nba_data_player_search_season())
     
-    shot_data<-data.frame()
-    if(length(player_teams$TEAM_ID)>1){
-      for (i in player_teams$TEAM_ID){
-        shots <- nba_shotchartdetail(
-          player_id = player_teams$PLAYER_ID[1], 
-          team_id = i,  
-          season = paste0(as.numeric(season_input)-1,
-                          "-",
-                          as.numeric(season_input) %% 100)
-        )
-        shot_data <- rbind(shot_data,shots$Shot_Chart_Detail)
-      }
-    }else{
+    season_input <- input$nba_player_search_season_select
+    
+    player_teams <- nba_data_player_search_season()$PlayerGameLogs %>%
+      mutate(PLAYER_NAME_CLEAN = stringi::stri_trans_general(PLAYER_NAME, "Latin-ASCII")) %>%
+      filter(PLAYER_NAME_CLEAN == input$nba_player_search) %>%
+      distinct(TEAM_ID, PLAYER_ID)
+    
+    shot_data <- data.frame()
+    chosen_season <- paste0(as.numeric(season_input) - 1, "-", as.numeric(season_input) %% 100)
+    
+    for (i in player_teams$TEAM_ID) {
       shots <- nba_shotchartdetail(
         player_id = player_teams$PLAYER_ID[1], 
-        team_id = player_teams$TEAM_ID[1],  
-        season = paste0(as.numeric(season_input)-1,
-                        "-",
-                        as.numeric(season_input) %% 100)
+        team_id = i,  
+        season = chosen_season
       )
-      shot_data<-shots$Shot_Chart_Detail
+      shot_data <- rbind(shot_data, shots$Shot_Chart_Detail)
     }
+    
     shot_data
   })
   
@@ -313,8 +307,33 @@ server <- function(input, output, session) {
                                       datatable(class = 'stripe hover compact cell-border')
                                     )),
         nav_panel("Shot Chart",
-                  DT::renderDataTable(nba_data_selected_player_shot_data())
-                  ),
+                  renderPlot(nba_data_selected_player_shot_data()%>%
+                               mutate(LOC_X= as.numeric(LOC_X),
+                                      LOC_Y= as.numeric(LOC_Y))%>%
+                               ggplot(aes(x = LOC_X, y = LOC_Y))+
+                               #Outerbox
+                               geom_rect(xmin = -250,xmax = 250, ymin=-50,ymax = 420, 
+                                         color = "black", linewidth = 0.8,fill = NA)+
+                               #Paint
+                               geom_rect(xmin=-80,xmax =80, ymin= -50, ymax= 140, 
+                                         color = "black", linewidth = 0.8,fill = NA)+
+                               
+                               #3pt line side
+                               geom_segment(x= 220,xend= 220, y = -50, yend = 89.48, color = "black")+
+                               geom_segment(x = -220,xend= -220,y =-50, yend = 89.48, color = "black")+
+                               #3pt line curved
+                               geom_function(
+                                 fun = function(x) { sqrt(237.5^2 - x^2) },
+                                 xlim = c(-220, 220),
+                                 color = "black"
+                               )+
+                               geom_point(aes(color = factor(SHOT_MADE_FLAG)), alpha = 0.5, size = 2) +
+                               scale_y_continuous(limits = c(420, -50))+ 
+                               scale_x_continuous(limits = c(-250, 250))+
+                               scale_color_manual(values = c("0" = "#C93636", "1" = "#609E3F"))+
+                               coord_fixed()+
+                               theme_void()+
+                               theme(legend.position = "none"))),
         nav_panel("title 3")
       )
     )

@@ -1,7 +1,7 @@
 library(hoopR)
 library(tidyverse)
 library(wehoop)
-
+library(ggplot2)
 
 
 getswingScore <- function(first_name, last_name, season_check) {
@@ -143,3 +143,6 @@ write_csv(final_df,"swing_score_2021.csv")
 ######################################################
 
 espn_wbb_team_news(team_id = 12)  
+
+  
+

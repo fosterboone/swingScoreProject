@@ -95,14 +95,14 @@ ui <- shinyUI(
 #Server Function Call----
 server <- function(input, output, session) {
   
-# Tab Selection (Server)----
-# NBA Tab Selection Logic
+  # Tab Selection (Server)----
+  # NBA Tab Selection Logic
   observeEvent(input$nba_page_selection, {
     nav_select("nba_main_disp", input$nba_page_selection)
   })
-
-# Player Search (Server)----
-
+  
+  # Player Search (Server)----
+  
   nba_player_search_season_data <- eventReactive(input$nba_player_search_season_select, {
     req(input$nba_player_search_season_select)#requires a season input
     load_nba_player_box(seasons = as.numeric(input$nba_player_search_season_select))%>%
@@ -148,14 +148,11 @@ server <- function(input, output, session) {
   })#Uses selected player to filter play by play data
   
   nba_data_player_search_season<-eventReactive(input$nba_player_search_season_select,{
-  
-    
     nba_playergamelogs(
       season = paste0(as.numeric(input$nba_player_search_season_select)-1,
                       "-",
                       as.numeric(input$nba_player_search_season_select) %% 100),player_id = "")
-    
-  })
+  })#Uses Selected player to get nba gamelog for shot data
   nba_data_selected_player_shot_data <- eventReactive(input$nba_player_search, {
     req(input$nba_player_search)
     req(nba_data_player_search_season())
@@ -180,7 +177,7 @@ server <- function(input, output, session) {
     }
     
     shot_data
-  })
+  })#Uses NBA gamelog to get shot chart for selected player
   
   output$nba_player_stats_ui <- renderUI({
     req(nrow(nba_selected_player_data()) > 0) # Waits to make sure player is selected
@@ -228,9 +225,9 @@ server <- function(input, output, session) {
                   p(""),
                   p("PPG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
                   p(nba_selected_player_data()%>%
-                             filter(!is.na(pts))%>%
-                             summarise(avg=round(mean(pts),2))%>%
-                             pull(avg),
+                      filter(!is.na(pts))%>%
+                      summarise(avg=round(mean(pts),2))%>%
+                      pull(avg),
                     style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
                     class = "text-center")
                 )
@@ -247,10 +244,10 @@ server <- function(input, output, session) {
                   p(""),
                   p("RPG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
                   p(nba_selected_player_data()%>%
-                             filter(!is.na(oreb),
-                                    !is.na(dreb))%>%
-                             summarise(avg=round(mean(oreb+dreb),digits = 2))%>%
-                             pull(avg),
+                      filter(!is.na(oreb),
+                             !is.na(dreb))%>%
+                      summarise(avg=round(mean(oreb+dreb),digits = 2))%>%
+                      pull(avg),
                     style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
                     class = "text-center")
                 )
@@ -267,65 +264,127 @@ server <- function(input, output, session) {
                   p(""),
                   p("APG",style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 35px; letter-spacing: 1px;"),
                   p(mean(nba_selected_player_data()%>%
-                                  filter(!is.na(ast))%>%
-                                  summarise(avg=round(mean(ast),2))%>%
-                                  pull(avg)
-                                ),
-                    style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
-                    class = "text-center")
+                           filter(!is.na(ast))%>%
+                           summarise(avg=round(mean(ast),2))%>%
+                           pull(avg)
+                  ),
+                  style="font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 25px; letter-spacing: 1px;",
+                  class = "text-center")
                 )
               )
             )#Shows Assists per game
           )
         )
       ),
+      fluidRow(
+        column(
+          width = 12,
+          card(
+            h3(strong("LAST 5 GAMES")),
+            DT::renderDataTable(nba_selected_player_data()%>%
+                                  select(c(39,3,4,12:29,46:48,52,57:63))%>%
+                                  rename(`TM`="team_display_name",
+                                         `SZN`="season_type",
+                                         `DT`="game_date",
+                                         `MN`="minutes",
+                                         `FGM`="fgm",
+                                         `FGA`="fga",
+                                         `3PFGM`="fg3m",
+                                         `3PFGA`="three_point_field_goals_attempted",
+                                         `FTM`="ftm",
+                                         `FTA`="fta",
+                                         `ORB`="oreb",
+                                         `DRB`="dreb",
+                                         `REB`="rebounds",
+                                         `AST`="ast",
+                                         `STL`="stl",
+                                         `BLK`="blk",
+                                         `TOV`="tov",
+                                         `PF`="pf",
+                                         `+/-`="plus_minus",
+                                         `PTS`="pts",
+                                         `START`="starter",
+                                         `H/A`="home_away",
+                                         `WON`="team_winner",
+                                         `TM SCR`="team_score",
+                                         `OPP TEAM`="opponent_team_display_name",
+                                         `OPP SCR`="opponent_team_score",
+                                         `TS%`="ts_pct",
+                                         `eFG%`="efg_pct",
+                                         `FT RT`="ft_rate",
+                                         `TOV%`="tov_pct",
+                                         `AST/TOV`="ast_to",
+                                         `GMSC`="game_score"
+                                         
+                                  )%>%
+                                  mutate(`TS%`=round(`TS%`*100,2),
+                                         `eFG%`=round(`eFG%`*100,2),
+                                         `FT RT`=round(`FT RT`*100,2),
+                                         `TOV%`=round(`TOV%`,2),
+                                         `GMSC`=round(`GMSC`,2),
+                                         `AST/TOV`=round(`AST/TOV`,2)
+                                  )%>%
+                                  head(5)%>%
+                                  datatable(class = 'stripe hover compact cell-border',
+                                            options = list(dom = 't'))
+                                  
+            )
+          )
+        ),
+        column(
+          width = 12,
+          card(
+            p("This is a supa test")
+          )
+        )
+      ),
       navset_tab(
         nav_panel("Box Score",
                   DT::renderDataTable(nba_selected_player_data()%>%
-                                    select(c(39,3,4,12:29,46:48,52,57:63))%>%
-                                    rename(`TM`="team_display_name",
-                                           `SZN`="season_type",
-                                           `DT`="game_date",
-                                           `MN`="minutes",
-                                           `FGM`="fgm",
-                                           `FGA`="fga",
-                                           `3PFGM`="fg3m",
-                                           `3PFGA`="three_point_field_goals_attempted",
-                                           `FTM`="ftm",
-                                           `FTA`="fta",
-                                           `ORB`="oreb",
-                                           `DRB`="dreb",
-                                           `REB`="rebounds",
-                                           `AST`="ast",
-                                           `STL`="stl",
-                                           `BLK`="blk",
-                                           `TOV`="tov",
-                                           `PF`="pf",
-                                           `+/-`="plus_minus",
-                                           `PTS`="pts",
-                                           `START`="starter",
-                                           `H/A`="home_away",
-                                           `WON`="team_winner",
-                                           `TM SCR`="team_score",
-                                           `OPP TEAM`="opponent_team_display_name",
-                                           `OPP SCR`="opponent_team_score",
-                                           `TS%`="ts_pct",
-                                           `eFG%`="efg_pct",
-                                           `FT RT`="ft_rate",
-                                           `TOV%`="tov_pct",
-                                           `AST/TOV`="ast_to",
-                                           `GMSC`="game_score"
-                
-                                    )%>%
-                                      mutate(`TS%`=round(`TS%`*100,2),
-                                             `eFG%`=round(`eFG%`*100,2),
-                                             `FT RT`=round(`FT RT`*100,2),
-                                             `TOV%`=round(`TOV%`,2),
-                                             `GMSC`=round(`GMSC`,2),
-                                             `AST/TOV`=round(`AST/TOV`,2)
-                                             )%>%
-                                      datatable(class = 'stripe hover compact cell-border')
-                                    )),
+                                        select(c(39,3,4,12:29,46:48,52,57:63))%>%
+                                        rename(`TM`="team_display_name",
+                                               `SZN`="season_type",
+                                               `DT`="game_date",
+                                               `MN`="minutes",
+                                               `FGM`="fgm",
+                                               `FGA`="fga",
+                                               `3PFGM`="fg3m",
+                                               `3PFGA`="three_point_field_goals_attempted",
+                                               `FTM`="ftm",
+                                               `FTA`="fta",
+                                               `ORB`="oreb",
+                                               `DRB`="dreb",
+                                               `REB`="rebounds",
+                                               `AST`="ast",
+                                               `STL`="stl",
+                                               `BLK`="blk",
+                                               `TOV`="tov",
+                                               `PF`="pf",
+                                               `+/-`="plus_minus",
+                                               `PTS`="pts",
+                                               `START`="starter",
+                                               `H/A`="home_away",
+                                               `WON`="team_winner",
+                                               `TM SCR`="team_score",
+                                               `OPP TEAM`="opponent_team_display_name",
+                                               `OPP SCR`="opponent_team_score",
+                                               `TS%`="ts_pct",
+                                               `eFG%`="efg_pct",
+                                               `FT RT`="ft_rate",
+                                               `TOV%`="tov_pct",
+                                               `AST/TOV`="ast_to",
+                                               `GMSC`="game_score"
+                                               
+                                        )%>%
+                                        mutate(`TS%`=round(`TS%`*100,2),
+                                               `eFG%`=round(`eFG%`*100,2),
+                                               `FT RT`=round(`FT RT`*100,2),
+                                               `TOV%`=round(`TOV%`,2),
+                                               `GMSC`=round(`GMSC`,2),
+                                               `AST/TOV`=round(`AST/TOV`,2)
+                                        )%>%
+                                        datatable(class = 'stripe hover compact cell-border')
+                  )),
         nav_panel("Shot Chart",
                   renderPlot(nba_data_selected_player_shot_data()%>%
                                mutate(LOC_X= as.numeric(LOC_X),
@@ -358,8 +417,8 @@ server <- function(input, output, session) {
       )
     )
   })
-
-#Schedule Output (Server)----
+  
+  #Schedule Output (Server)----
   # NBA Game output Logic 
   nba_schedule_game_selections<-reactive({
     if (as.numeric(substr(input$nba_game_date,1,4))==most_recent_mbb_season()){
@@ -417,7 +476,7 @@ server <- function(input, output, session) {
               p(nba_schedule_game_selections_df$away_score[i],
                 class = "mx-auto my-3",
                 style = "font-size: 40px;")
-          ))
+            ))
         ) 
       })
       do.call(
@@ -430,6 +489,3 @@ server <- function(input, output, session) {
 
 
 shinyApp(ui, server)
-
-
-
